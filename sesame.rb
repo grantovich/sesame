@@ -22,3 +22,9 @@ post '/access' do
     end
   end.text
 end
+
+post '/generate' do
+  if params['token'] == 'c64hPSkxXJab9cHJqVvG51RP'
+    'Generated new access code: xxxx'
+  end
+end
