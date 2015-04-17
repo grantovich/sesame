@@ -3,8 +3,13 @@ GEM
   specs:
     builder (3.2.2)
     chronic (0.10.2)
+    httparty (0.13.3)
+      json (~> 1.8)
+      multi_xml (>= 0.5.2)
+    json (1.8.2)
     jwt (1.4.1)
     multi_json (1.11.0)
+    multi_xml (0.5.5)
     rack (1.6.0)
     rack-protection (1.5.3)
       rack
@@ -24,6 +29,7 @@ PLATFORMS
 
 DEPENDENCIES
   chronic
+  httparty
   redis
   sinatra
   twilio-ruby

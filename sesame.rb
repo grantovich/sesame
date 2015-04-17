@@ -39,9 +39,12 @@ end
 
 post '/access' do
   Twilio::TwiML::Response.new do |r|
-    if codes.any?{ |code| code[:code] == params['Digits'] && code[:begins] < Time.now }
+    if code = codes.find{ |code| code[:code] == params['Digits'] && code[:begins] < Time.now }
       r.Say 'Access granted.'
       r.Play digits: '5ww5ww5ww5'
+      HTTParty.post(ENV['WEBHOOK_URL'], body: {
+        text: "Someone used access code #{code[:code]} for #{code[:label] || '(no label)'} – expires #{format_time(code[:expires])}"
+      }.to_json)
     elsif params['Digits'] == '*'
       r.Dial ENV['OFFICE_PHONE_NUMBER']
     else
