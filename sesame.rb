@@ -52,15 +52,19 @@ post '/command' do
 
   if command.strip == 'list'
 
-    codes.map do |code|
-      [
-        code[:code],
-        "Begins #{code[:begins].strftime(TIME_FORMAT)}",
-        "Expires #{code[:expires].strftime(TIME_FORMAT)}",
-        "Created by #{code[:creator]}",
-        code[:label] || '(no label)'
-      ].join(' – ')
-    end.join("\n")
+    if codes.any?
+      codes.map do |code|
+        [
+          code[:code],
+          "Begins #{code[:begins].strftime(TIME_FORMAT)}",
+          "Expires #{code[:expires].strftime(TIME_FORMAT)}",
+          "Created by #{code[:creator]}",
+          code[:label] || '(no label)'
+        ].join(' – ')
+      end.join("\n")
+    else
+      'There are no active access codes right now.'
+    end
 
   elsif command =~ /begins|expires|for/
 
