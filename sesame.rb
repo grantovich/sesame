@@ -1,5 +1,23 @@
+require 'json'
+require 'date'
 require 'bundler'
 Bundler.require
+$stdout.sync = true
+
+redis = Redis.new(url: ENV['REDISTOGO_URL'])
+codes = JSON.parse(redis.get('codes') || '[]').map do |code|
+  { code: code['code'], expires: DateTime.parse(code['expires']) }
+end
+
+before do
+  codes.reject! do |code|
+    code[:expires] < DateTime.now
+  end
+end
+
+after do
+  redis.set('codes', codes.to_json)
+end
 
 get '/' do
   Twilio::TwiML::Response.new do |r|
@@ -12,11 +30,11 @@ end
 
 post '/access' do
   Twilio::TwiML::Response.new do |r|
-    if params['Digits'] == '1138'
+    if codes.any?{ |code| code[:code] == params['Digits'] }
       r.Say 'Access granted.'
       r.Play digits: '5ww5ww5ww5'
     elsif params['Digits'] == '*'
-      r.Dial '+16178070857'
+      r.Dial ENV['OFFICE_PHONE_NUMBER']
     else
       r.Say 'Access denied.'
     end
@@ -24,7 +42,9 @@ post '/access' do
 end
 
 post '/generate' do
-  if params['token'] == 'c64hPSkxXJab9cHJqVvG51RP'
-    'Generated new access code: xxxx'
+  if params['token'] == ENV['SLASH_COMMAND_TOKEN']
+    new_code = rand(10000).to_s.rjust(4, '0') until codes.none?{ |code| code[:code] == new_code }
+    codes.push({ code: new_code, expires: Chronic.parse('5 minutes from now') })
+    "Generated new access code #{new_code}, expires #{codes.last[:expires]}"
   end
 end
