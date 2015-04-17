@@ -6,7 +6,6 @@ Chronic.time_class = DateTime
 DATETIME_FORMAT = '%Y-%m-%d at %I:%M%P'
 
 redis = Redis.new(url: ENV['REDISTOGO_URL'])
-redis.set('codes', '[]') # TODO: Remove this
 codes = JSON.parse(redis.get('codes') || '[]').map do |code|
   {
     code: code['code'],
@@ -88,13 +87,18 @@ post '/command' do
 
   elsif command.strip =~ /^revoke \d{4}$/
 
-    # TODO: Handle revoke
+    target_code = command[/revoke (\d{4})/, 1]
+    if codes.reject!{ |code| code[:code] == target_code }
+      "Access code #{target_code} has been revoked."
+    else
+      "Error: Access code #{target_code} does not exist."
+    end
 
   else
     [
-      "List current access codes: /sesame list",
-      "Generate new access code: /sesame [from <datetime>] [until <datetime>] [for <label>]",
-      "Revoke existing access code: /sesame revoke <code>"
+      'List current access codes: /sesame list',
+      'Generate new access code: /sesame [from <datetime>] [until <datetime>] [for <label>]',
+      'Revoke existing access code: /sesame revoke <code>'
     ].join("\n")
   end
 end
