@@ -1,16 +1,14 @@
 require 'json'
-require 'date'
 require 'bundler'
 Bundler.require
-Chronic.time_class = DateTime
-DATETIME_FORMAT = '%Y-%m-%d at %I:%M%P'
+TIME_FORMAT = '%Y-%m-%d at %I:%M%P'
 
 redis = Redis.new(url: ENV['REDISTOGO_URL'])
 codes = JSON.parse(redis.get('codes') || '[]').map do |code|
   {
     code: code['code'],
-    begins: DateTime.parse(code['begins']),
-    expires: DateTime.parse(code['expires']),
+    begins: Time.parse(code['begins']),
+    expires: Time.parse(code['expires']),
     creator: code['creator'],
     label: code['label']
   }
@@ -18,7 +16,7 @@ end
 
 before do
   codes.reject! do |code|
-    code[:expires] < DateTime.now
+    code[:expires] < Time.now
   end
 end
 
@@ -37,7 +35,7 @@ end
 
 post '/access' do
   Twilio::TwiML::Response.new do |r|
-    if codes.any?{ |code| code[:code] == params['Digits'] && code[:begins] < DateTime.now }
+    if codes.any?{ |code| code[:code] == params['Digits'] && code[:begins] < Time.now }
       r.Say 'Access granted.'
       r.Play digits: '5ww5ww5ww5'
     elsif params['Digits'] == '*'
@@ -57,17 +55,17 @@ post '/command' do
     codes.map do |code|
       [
         code[:code],
-        "Begins #{code[:begins].strftime(DATETIME_FORMAT)}",
-        "Expires #{code[:expires].strftime(DATETIME_FORMAT)}",
+        "Begins #{code[:begins].strftime(TIME_FORMAT)}",
+        "Expires #{code[:expires].strftime(TIME_FORMAT)}",
         "Created by #{code[:creator]}",
         code[:label] || '(no label)'
       ].join(' – ')
     end.join("\n")
 
-  elsif command =~ /from|until|for/
+  elsif command =~ /begins|expires|for/
 
-    begins = Chronic.parse(command[/from (.*)( until| for|$)/, 1]) || DateTime.now
-    expires = Chronic.parse(command[/until (.*)( for|$)/, 1]) || Chronic.parse('15 minutes from now')
+    begins = Chronic.parse(command[/begins (.*)( expires| for|$)/, 1]) || Time.now
+    expires = Chronic.parse(command[/expires (.*)( for|$)/, 1]) || begins + (15 * 60)
     label = command[/for (.*)/, 1]
 
     new_code = loop do
@@ -83,7 +81,7 @@ post '/command' do
       label: label
     })
 
-    "Generated access code #{new_code}, begins #{begins.strftime(DATETIME_FORMAT)}, expires #{expires.strftime(DATETIME_FORMAT)}"
+    "Generated access code #{new_code}, begins #{begins.strftime(TIME_FORMAT)}, expires #{expires.strftime(TIME_FORMAT)}"
 
   elsif command.strip =~ /^revoke \d{4}$/
 
@@ -97,7 +95,7 @@ post '/command' do
   else
     [
       'List current access codes: /sesame list',
-      'Generate new access code: /sesame [from <datetime>] [until <datetime>] [for <label>]',
+      'Generate new access code: /sesame [begins <datetime>] [expires <datetime>] [for <label>]',
       'Revoke existing access code: /sesame revoke <code>'
     ].join("\n")
   end
