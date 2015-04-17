@@ -1,8 +1,12 @@
 require 'json'
 require 'bundler'
 Bundler.require
-TIME_FORMAT = '%Y-%m-%d at %I:%M%P'
 
+def format_time(time)
+  time.getlocal.strftime('%Y-%m-%d at %I:%M%P')
+end
+
+# FIXME: This whole storage system only works with a single app instance
 redis = Redis.new(url: ENV['REDISTOGO_URL'])
 codes = JSON.parse(redis.get('codes') || '[]').map do |code|
   {
@@ -56,8 +60,8 @@ post '/command' do
       codes.map do |code|
         [
           code[:code],
-          "Begins #{code[:begins].strftime(TIME_FORMAT)}",
-          "Expires #{code[:expires].strftime(TIME_FORMAT)}",
+          "Begins #{format_time(code[:begins])}",
+          "Expires #{format_time(code[:expires])}",
           "Created by #{code[:creator]}",
           code[:label] || '(no label)'
         ].join(' – ')
@@ -85,7 +89,7 @@ post '/command' do
       label: label
     })
 
-    "Generated access code #{new_code}, begins #{begins.strftime(TIME_FORMAT)}, expires #{expires.strftime(TIME_FORMAT)}"
+    "Generated access code #{new_code}, begins #{format_time(begins)}, expires #{format_time(expires)}"
 
   elsif command.strip =~ /^revoke \d{4}$/
 
