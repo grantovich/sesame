@@ -33,7 +33,7 @@ get '/' do
     r.Gather numDigits: 4, action: '/access', timeout: 3 do |g|
       g.Say 'Enter access code, or press star to call the office.'
     end
-    r.Say 'Code not entered, disconnecting.'
+    r.Say 'Code not entered. Goodbye.'
   end.text
 end
 
@@ -48,7 +48,7 @@ post '/access' do
     elsif params['Digits'] == '*'
       r.Dial ENV['OFFICE_PHONE_NUMBER']
     else
-      r.Say 'Access denied.'
+      r.Say 'Invalid access code. Goodbye.'
     end
   end.text
 end
@@ -56,8 +56,10 @@ end
 post '/command' do
   return status 401 unless params['token'] == ENV['SLASH_COMMAND_TOKEN']
   command = params['text'] || ''
+  command = '(no command)' if command.empty?
 
-  if command.strip == 'list'
+  response = case command
+  when /^list/
 
     if codes.any?
       codes.map do |code|
@@ -73,11 +75,11 @@ post '/command' do
       'There are no active access codes right now.'
     end
 
-  elsif command =~ /begins|expires|for/
+  when /^create/
 
-    begins = Chronic.parse(command[/begins (.*)( expires| for|$)/, 1]) || Time.now
-    expires = Chronic.parse(command[/expires (.*)( for|$)/, 1]) || begins + (15 * 60)
-    label = command[/for (.*)/, 1]
+    begins = Chronic.parse(command[/starting (.*)( ending| for|$)/, 1]) || Time.now
+    expires = Chronic.parse(command[/ending (.*)( starting| for|$)/, 1]) || begins + (15 * 60)
+    label = command[/for (.*)( starting| ending|$)/, 1]
 
     new_code = loop do
       random_code = rand(10000).to_s.rjust(4, '0')
@@ -94,7 +96,7 @@ post '/command' do
 
     "Generated access code #{new_code}, begins #{format_time(begins)}, expires #{format_time(expires)}"
 
-  elsif command.strip =~ /^revoke \d{4}$/
+  when /^revoke/
 
     target_code = command[/revoke (\d{4})/, 1]
     if codes.reject!{ |code| code[:code] == target_code }
@@ -104,10 +106,19 @@ post '/command' do
     end
 
   else
+
     [
       'List current access codes: /sesame list',
-      'Generate new access code: /sesame [begins <datetime>] [expires <datetime>] [for <label>]',
-      'Revoke existing access code: /sesame revoke <code>'
+      'Create new access code: /sesame create [starting <datetime>] [ending <datetime>] [for <label>]',
+      'Revoke existing access code: /sesame revoke <code>',
+      '_ Many plain-English time formats are understood, see https://github.com/mojombo/chronic#examples _'
     ].join("\n")
+
   end
+
+  HTTParty.post(ENV['WEBHOOK_URL'], body: {
+    text: '> _' + command + "_\n" + response,
+    channel: '@' + params['user_name']
+  }.to_json)
+  status 204
 end
