@@ -73,7 +73,9 @@ end
 
 post '/access' do
   Twilio::TwiML::Response.new do |r|
-    if code = codes.find{ |code| code.code == params['Digits'] && code.valid? }
+    code = codes.find{ |code| code.code == params['Digits'] }
+
+    if code.try(:valid?)
       r.Say 'Access granted.'
       r.Play digits: '5ww5ww5ww5'
       Slack.public_message("Access code used: #{code}")
@@ -81,15 +83,20 @@ post '/access' do
       r.Dial ENV['OFFICE_PHONE_NUMBER']
     else
       r.Say 'Invalid access code. Goodbye.'
-      Slack.public_message("Invalid access code entered: #{params['Digits']}")
+
+      if code.present?
+        Slack.public_message("Not-yet-valid access code entered: #{code}")
+      else
+        Slack.public_message("Invalid access code entered: #{params['Digits']}")
+      end
     end
   end.text
 end
 
 post '/command' do
   return status 401 unless params['token'] == ENV['SLASH_COMMAND_TOKEN']
-  command = (params['text'] || '').strip
-  command = '(no command)' if command.empty?
+
+  command = params['text'].strip.presence || '(no command)'
 
   response = case command
   when /^list/
@@ -103,7 +110,7 @@ post '/command' do
   when /^create/
 
     begins = Chronic.parse(command[/starting (.*)( ending| for|$)/, 1]) || Time.now
-    expires = Chronic.parse(command[/ending (.*)( starting| for|$)/, 1]) || begins + (15 * 60)
+    expires = Chronic.parse(command[/ending (.*)( starting| for|$)/, 1]) || begins + 15.minutes
     label = command[/for (.*)( starting| ending|$)/, 1]
 
     new_code = loop do
@@ -125,6 +132,7 @@ post '/command' do
   when /^revoke/
 
     target_code = command[/revoke (\d{4})/, 1]
+
     if codes.reject!{ |code| code.code == target_code }
       "Access code #{target_code} has been revoked."
     else

@@ -46,6 +46,7 @@ PLATFORMS
 
 DEPENDENCIES
   active_attr
+  activesupport
   chronic
   httparty
   redis
