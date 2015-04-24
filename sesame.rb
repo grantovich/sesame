@@ -5,7 +5,7 @@ Bundler.require
 class AccessCode
   include ActiveAttr::Model
 
-  attribute :code, type: String
+  attribute :digits, type: String
   attribute :label, type: String
   attribute :creator, type: String
   attribute :begins_at, type: DateTime
@@ -21,7 +21,7 @@ class AccessCode
 
   def to_s
     [
-      code,
+      digits,
       "Begins #{format_time(begins_at)}",
       "Expires #{format_time(expires_at)}",
       "Created by #{creator}",
@@ -52,7 +52,7 @@ end
 
 # FIXME: This whole storage system only works with a single app instance
 redis = Redis.new(url: ENV['REDISTOGO_URL'])
-codes = JSON.parse(redis.get('codes') || '[]').map{ |code| AccessCode.new(code) }
+codes = JSON.parse(redis.get('codes') || '[]').map{ |code_attrs| AccessCode.new(code_attrs) }
 
 before do
   codes.reject!(&:expired?)
@@ -73,21 +73,23 @@ end
 
 post '/access' do
   Twilio::TwiML::Response.new do |r|
-    code = codes.find{ |code| code.code == params['Digits'] }
-
-    if code.try(:valid?)
-      r.Say 'Access granted.'
-      r.Play digits: '5ww5ww5ww5'
-      Slack.public_message("Access code used: #{code}")
-    elsif params['Digits'] == '*'
+    if params['Digits'] == '*'
       r.Dial ENV['OFFICE_PHONE_NUMBER']
     else
-      r.Say 'Invalid access code. Goodbye.'
+      code = codes.find{ |code| code.digits == params['Digits'] }
 
-      if code.present?
-        Slack.public_message("Not-yet-valid access code entered: #{code}")
+      if code.try(:valid?)
+        r.Say 'Access granted.'
+        r.Play digits: '5ww5ww5ww5ww5'
+        Slack.public_message("Access code used: #{code}")
       else
-        Slack.public_message("Invalid access code entered: #{params['Digits']}")
+        r.Say 'Invalid access code. Goodbye.'
+
+        if code.present?
+          Slack.public_message("Not-yet-valid access code entered: #{code}")
+        else
+          Slack.public_message("Invalid access code entered: #{params['Digits']}")
+        end
       end
     end
   end.text
@@ -113,13 +115,13 @@ post '/command' do
     expires = Chronic.parse(command[/ending (.*)( starting| for|$)/, 1]) || begins + 15.minutes
     label = command[/for (.*)( starting| ending|$)/, 1]
 
-    new_code = loop do
-      random_code = rand(10000).to_s.rjust(4, '0')
-      break random_code unless codes.any?{ |code| code.code == random_code }
+    new_digits = loop do
+      random_digits = rand(10000).to_s.rjust(4, '0')
+      break random_digits unless codes.any?{ |code| code.digits == random_digits }
     end
 
     code = AccessCode.new(
-      code: new_code,
+      digits: new_digits,
       begins_at: begins,
       expires_at: expires,
       creator: params['user_name'],
@@ -131,12 +133,12 @@ post '/command' do
 
   when /^revoke/
 
-    target_code = command[/revoke (\d{4})/, 1]
+    digits = command[/revoke (\d{4})/, 1]
 
-    if codes.reject!{ |code| code.code == target_code }
-      "Access code #{target_code} has been revoked."
+    if codes.reject!{ |code| code.digits == digits }
+      "Access code #{digits} has been revoked."
     else
-      "Error: Access code #{target_code} does not exist."
+      "Error: Access code #{digits} does not exist."
     end
 
   else
