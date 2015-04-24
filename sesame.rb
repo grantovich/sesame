@@ -2,64 +2,20 @@ require 'json'
 require 'bundler'
 Bundler.require
 
-class AccessCode
-  include ActiveAttr::Model
-
-  attribute :digits, type: String
-  attribute :label, type: String
-  attribute :creator, type: String
-  attribute :begins_at, type: DateTime
-  attribute :expires_at, type: DateTime
-
-  def valid?
-    begins_at < DateTime.now && !expired?
-  end
-
-  def expired?
-    expires_at < DateTime.now
-  end
-
-  def to_s
-    [
-      digits,
-      "Begins #{format_time(begins_at)}",
-      "Expires #{format_time(expires_at)}",
-      "Created by #{creator}",
-      label || '(no label)'
-    ].join(' – ')
-  end
-
-  private
-
-  def format_time(time)
-    time.to_time.getlocal.strftime('%Y-%m-%d at %I:%M%P')
-  end
-end
-
-class Slack
-  def self.public_message(text)
-    self.post_message(text: text)
-  end
-
-  def self.private_message(user_name, text)
-    self.post_message(text: text, channel: '@' + user_name)
-  end
-
-  def self.post_message(params)
-    HTTParty.post(ENV['WEBHOOK_URL'], body: params.to_json)
-  end
-end
+require_relative 'lib/code'
+require_relative 'lib/command'
+require_relative 'lib/slack'
 
 # FIXME: This whole storage system only works with a single app instance
 redis = Redis.new(url: ENV['REDISTOGO_URL'])
-codes = JSON.parse(redis.get('codes') || '[]').map{ |code_attrs| AccessCode.new(code_attrs) }
+Codes = JSON.parse(redis.get('codes') || '[]').map{ |code_attrs| Code.new(code_attrs) }
 
 before do
-  codes.reject!(&:expired?)
+  Codes.reject!(&:expired?)
 end
 
 after do
-  redis.set('codes', codes.to_json)
+  redis.set('codes', Codes.to_json)
 end
 
 get '/' do
@@ -76,7 +32,7 @@ post '/access' do
     if params['Digits'] == '*'
       r.Dial ENV['OFFICE_PHONE_NUMBER']
     else
-      code = codes.find{ |code| code.digits == params['Digits'] }
+      code = Codes.find{ |code| code.digits == params['Digits'] }
 
       if code.try(:valid?)
         r.Say 'Access granted.'
@@ -98,60 +54,8 @@ end
 post '/command' do
   return status 401 unless params['token'] == ENV['SLASH_COMMAND_TOKEN']
 
-  command = params['text'].strip.presence || '(no command)'
+  command = Command.new(params['text'], params['user_name'])
+  Slack.private_message(params['user_name'], "> _#{command}_\n" + command.response)
 
-  response = case command
-  when /^list/
-
-    if codes.any?
-      codes.map(&:to_s).join("\n")
-    else
-      'There are no active access codes right now.'
-    end
-
-  when /^create/
-
-    begins = Chronic.parse(command[/starting (.*)( ending| for|$)/, 1]) || Time.now
-    expires = Chronic.parse(command[/ending (.*)( starting| for|$)/, 1]) || begins + 15.minutes
-    label = command[/for (.*)( starting| ending|$)/, 1]
-
-    new_digits = loop do
-      random_digits = rand(10000).to_s.rjust(4, '0')
-      break random_digits unless codes.any?{ |code| code.digits == random_digits }
-    end
-
-    code = AccessCode.new(
-      digits: new_digits,
-      begins_at: begins,
-      expires_at: expires,
-      creator: params['user_name'],
-      label: label
-    )
-    codes.push(code)
-
-    "Generated access code: #{code}"
-
-  when /^revoke/
-
-    digits = command[/revoke (\d{4})/, 1]
-
-    if codes.reject!{ |code| code.digits == digits }
-      "Access code #{digits} has been revoked."
-    else
-      "Error: Access code #{digits} does not exist."
-    end
-
-  else
-
-    [
-      'List current access codes: /sesame list',
-      'Create new access code: /sesame create [starting <datetime>] [ending <datetime>] [for <label>]',
-      'Revoke existing access code: /sesame revoke <code>',
-      '_ Many plain-English time formats are understood, see https://github.com/mojombo/chronic#examples _'
-    ].join("\n")
-
-  end
-
-  Slack.private_message(params['user_name'], '> _' + command + "_\n" + response)
   status 204
 end
