@@ -37,9 +37,9 @@ class Command
   end
 
   def create
-    begins = Chronic.parse(@params[/starting (.*)( ending| for|$)/, 1]) || Time.now
-    expires = Chronic.parse(@params[/ending (.*)( starting| for|$)/, 1]) || begins + 15.minutes
-    label = @params[/for (.*)( starting| ending|$)/, 1]
+    begins = Chronic.parse(@params[/starting (.*?)( ending| for|$)/, 1]) || Time.now
+    expires = Chronic.parse(@params[/ending (.*?)( starting| for|$)/, 1]) || begins + 15.minutes
+    label = @params[/for (.*?)( starting| ending|$)/, 1]
 
     new_digits = loop do
       random_digits = rand(10000).to_s.rjust(4, '0')
