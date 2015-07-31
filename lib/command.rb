@@ -42,7 +42,7 @@ class Command
     label = @params[/for (.*?)( starting| ending|$)/, 1]
 
     new_digits = loop do
-      random_digits = rand(10000).to_s.rjust(4, '0')
+      random_digits = rand(10_000).to_s.rjust(4, '0')
       break random_digits unless Codes.any?{ |code| code.digits == random_digits }
     end
 

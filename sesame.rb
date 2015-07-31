@@ -32,17 +32,17 @@ post '/access' do
     if params['Digits'] == '*'
       r.Dial ENV['OFFICE_PHONE_NUMBER']
     else
-      code = Codes.find{ |code| code.digits == params['Digits'] }
+      found_code = Codes.find{ |code| code.digits == params['Digits'] }
 
-      if code.try(:valid?)
+      if found_code.try(:valid?)
         r.Say 'Access granted.'
         r.Play digits: '5ww5ww5ww5ww5'
-        Slack.public_message("Access code used: #{code}")
+        Slack.public_message("Access code used: #{found_code}")
       else
         r.Say 'Invalid access code. Goodbye.'
 
-        if code.present?
-          Slack.public_message("Not-yet-valid access code entered: #{code}")
+        if found_code.present?
+          Slack.public_message("Not-yet-valid access code entered: #{found_code}")
         else
           Slack.public_message("Invalid access code entered: #{params['Digits']}")
         end
