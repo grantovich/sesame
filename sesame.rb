@@ -7,7 +7,7 @@ require_relative 'lib/command'
 require_relative 'lib/slack'
 
 # FIXME: This whole storage system only works with a single app instance
-redis = Redis.new(url: ENV['REDISTOGO_URL'])
+redis = Redis.new(url: ENV['REDIS_URL'])
 Codes = JSON.parse(redis.get('codes') || '[]').map{ |code_attrs| Code.new(code_attrs) }
 
 before do
