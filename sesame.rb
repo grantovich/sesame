@@ -20,7 +20,7 @@ end
 
 get '/' do
   Twilio::TwiML::Response.new do |r|
-    r.Gather numDigits: 4, action: '/access', timeout: 3 do |g|
+    r.Gather numDigits: 4, action: '/access' do |g|
       g.Say 'Enter access code, or press star to call the office.'
     end
     r.Say 'Code not entered. Goodbye.'
