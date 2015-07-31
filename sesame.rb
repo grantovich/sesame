@@ -39,7 +39,8 @@ post '/access' do
         r.Play digits: '5ww5ww5ww5ww5'
         Slack.public_message("Access code used: #{found_code}")
       else
-        r.Say 'Invalid access code. Goodbye.'
+        r.Say 'Invalid access code.'
+        r.Redirect '/', method: 'GET'
 
         if found_code.present?
           Slack.public_message("Not-yet-valid access code entered: #{found_code}")
