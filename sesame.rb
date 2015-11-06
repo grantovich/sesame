@@ -20,33 +20,30 @@ end
 
 get '/' do
   Twilio::TwiML::Response.new do |r|
-    r.Gather numDigits: 4, action: '/access' do |g|
+    r.Gather numDigits: 4, finishOnKey: '*', action: '/access' do |g|
       g.Say 'Enter access code, or press star to call the office.'
     end
-    r.Say 'Code not entered. Goodbye.'
+    r.Say 'One moment please.'
+    r.Dial ENV['OFFICE_PHONE_NUMBER']
   end.text
 end
 
 post '/access' do
   Twilio::TwiML::Response.new do |r|
-    if params['Digits'] == '*'
-      r.Dial ENV['OFFICE_PHONE_NUMBER']
+    found_code = Codes.find{ |code| code.digits == params['Digits'] }
+
+    if found_code.try(:valid?)
+      r.Say 'Access granted.'
+      r.Play digits: '5ww5ww5ww5ww5'
+      Slack.public_message("Access code used: #{found_code}")
     else
-      found_code = Codes.find{ |code| code.digits == params['Digits'] }
+      r.Say 'Invalid access code.'
+      r.Redirect '/', method: 'GET'
 
-      if found_code.try(:valid?)
-        r.Say 'Access granted.'
-        r.Play digits: '5ww5ww5ww5ww5'
-        Slack.public_message("Access code used: #{found_code}")
+      if found_code.present?
+        Slack.public_message("Not-yet-valid access code entered: #{found_code}")
       else
-        r.Say 'Invalid access code.'
-        r.Redirect '/', method: 'GET'
-
-        if found_code.present?
-          Slack.public_message("Not-yet-valid access code entered: #{found_code}")
-        else
-          Slack.public_message("Invalid access code entered: #{params['Digits']}")
-        end
+        Slack.public_message("Invalid access code entered: #{params['Digits']}")
       end
     end
   end.text
