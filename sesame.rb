@@ -32,7 +32,7 @@ post '/access' do
   Twilio::TwiML::Response.new do |r|
     found_code = Codes.find{ |code| code.digits == params['Digits'] }
 
-    if found_code.try(:valid?)
+    if found_code&.valid?
       r.Say 'Access granted.'
       r.Play digits: '5ww5ww5ww5ww5'
       Slack.public_message("Access code used: #{found_code}")

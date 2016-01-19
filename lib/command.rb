@@ -5,7 +5,7 @@ class Command
   def initialize(input, username)
     @input = input
     @username = username
-    @command = input.strip[/^\S+/].try(:downcase).try(:to_sym)
+    @command = input.strip[/^\S+/]&.downcase&.to_sym
     @params = input.strip[/\s(.*)/, 1] || ''
   end
 
