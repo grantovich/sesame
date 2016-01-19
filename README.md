@@ -6,14 +6,14 @@ Created for, and sponsored by, [Vermonster](http://www.vermonster.com/).
 ## Requirements
 
 * [Heroku](https://www.heroku.com/home) or other app host
-* [Redis](http://redis.io/) instance, e.g. [RedisToGo][rtg] Nano
+* [Redis](http://redis.io/) instance, e.g. [Heroku Redis][redis]
 * [Slack](https://slack.com/) slash command and incoming webhook
 * [Twilio](https://www.twilio.com/) phone number
 * Building intercom system that operates by dialing a programmed phone number
   and opening the door when the recipient of the call presses 5 on the keypad
 * Phone number to receive calls for visitors who don't have an access code
 
-[rtg]: https://elements.heroku.com/addons/redistogo
+[redis]: https://elements.heroku.com/addons/heroku-redis
 
 ## Setup
 
