@@ -17,12 +17,19 @@ class Command
     if COMMANDS.include?(@command)
       send(@command)
     else
-      [
-        'List current access codes: /sesame list',
-        'Create new access code: /sesame create [starting <datetime>] [ending <datetime>] [for <label>]',
-        'Revoke existing access code: /sesame revoke <code>',
-        '_ Many plain-English time formats are understood, see https://github.com/mojombo/chronic#examples _'
-      ].join("\n")
+      <<~USAGE
+        *Basic Usage*
+        `/sesame list` – List all known access codes
+        `/sesame create` – Create an access code that expires in 15 minutes
+        `/sesame revoke 1234` – Immediately expire access code 1234
+
+        *Customization*
+        `/sesame create ending in 2 hours` – Customize expiration time
+        `/sesame create ending today at 5:30pm` – Expire at a specific time
+        `/sesame create starting Wednesday at 9am, ending 5/18 at 5pm` – Become valid at a specific time
+        `/sesame create starting 6pm, ending 9pm, for Boston CSS meetup` – Label the code so people know what it's for
+        _ Start time, end time, and label are all optional. Recognized time formats: https://github.com/mojombo/chronic#examples _
+      USAGE
     end
   end
 
@@ -32,7 +39,7 @@ class Command
     if Codes.any?
       Codes.map(&:to_s).join("\n")
     else
-      'There are no active access codes right now.'
+      'There are no access codes right now.'
     end
   end
 
