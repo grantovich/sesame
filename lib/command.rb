@@ -70,8 +70,10 @@ class Command
 
     if Codes.reject!{ |code| code.digits == digits }
       "Access code #{digits} has been revoked."
-    else
+    elsif digits
       "Error: Access code #{digits} does not exist."
+    else
+      "Error: Provide the code to revoke, e.g. `/sesame revoke 1234`"
     end
   end
 end
